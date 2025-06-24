@@ -89,10 +89,6 @@ def crawl_robots_txt(domain):
     except:
         return "No robots.txt or request failed"
 
-# --- Traceroute (Mocked for Colab) ---
-def traceroute_mock(domain):
-    return ["Hop 1: 192.168.1.1", "Hop 2: 10.10.10.1", f"Hop 3: {domain} (final hop)"]
-
 # --- JavaScript File Extractor ---
 def get_js_links(domain):
     try:
@@ -183,7 +179,7 @@ domain = st.text_input("🔎 Enter a domain (e.g., example.com)")
 report = {}  # Initialize empty to avoid NameError
 
 if st.button("Run Full Recon") and domain:
-    st.info("Running Recon... please wait ⏳")
+    st.info("Running Recon... please wait ")
 
     # Run all scans
     report['WHOIS + DNS'] = get_whois_dns(domain)
@@ -191,46 +187,42 @@ if st.button("Run Full Recon") and domain:
     report['Open Ports'] = run_nmap_scan(domain)[1]
     report['SSL Info'] = get_ssl_info(domain)
     report['robots.txt'] = crawl_robots_txt(domain)
-    report['Traceroute'] = traceroute_mock(domain)
     report['JS Files'] = get_js_links(domain)
     report['Google Dorks'] = google_dork_suggestions(domain)
 
-    st.success("✅ Recon complete!")
+    st.success(" Recon complete!")
 
     st.subheader("📊 Recon Report Breakdown")
 
     # --- Sectioned Output ---
-    with st.expander("🌐 WHOIS & DNS"):
+    with st.expander(" WHOIS & DNS"):
         st.json(report.get("WHOIS + DNS", {}))
 
-    with st.expander("🧩 Subdomains Found"):
+    with st.expander(" Subdomains Found"):
         st.write(f"Total: {len(report.get('Subdomains', []))}")
         st.code("\n".join(report.get("Subdomains", [])))
 
-    with st.expander("📦 Open Ports"):
+    with st.expander(" Open Ports"):
         ports = report.get("Open Ports", {})
         if "error" in ports:
             st.warning(ports["error"])
         else:
             st.json(ports)
 
-    with st.expander("🔒 SSL Certificate"):
+    with st.expander(" SSL Certificate"):
         st.json(report.get("SSL Info", {}))
 
-    with st.expander("🤖 robots.txt"):
+    with st.expander(" robots.txt"):
         st.code(report.get("robots.txt", "No robots.txt"))
 
-    with st.expander("🚀 Traceroute"):
-        st.code("\n".join(report.get("Traceroute", [])))
-
-    with st.expander("📜 JavaScript Files"):
+    with st.expander(" JavaScript Files"):
         st.code("\n".join(report.get("JS Files", [])))
 
-    with st.expander("🧠 Google Dork Suggestions"):
+    with st.expander(" Google Dork Suggestions"):
         st.code("\n".join(report.get("Google Dorks", [])))
 
     # --- Download Button ---
-    st.download_button("📥 Download Report (JSON)", json.dumps(report, indent=2), file_name=f"{domain}_recon.json")
+    st.download_button(" Download Report (JSON)", json.dumps(report, indent=2), file_name=f"{domain}_recon.json")
 
 else:
     st.info("Enter a domain above and click **Run Full Recon** to begin.")
