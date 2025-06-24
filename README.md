@@ -11,7 +11,8 @@ Useful for bug bounty hunters and penetration testers.
 - JS File Extraction  
 - Google Dork Suggestions  
 - Optional Port Scan (if Nmap is installed)
--*N/B: To be improved overtime as is actively being developed-better UI,less errors and an integration with AI for intelligent recon analysis
+## N/B
+To be improved overtime as is actively being developed-better UI,less errors and an integration with AI for intelligent recon analysis
 (This is just for the start.Watch out for more!!!) 
 
 ## Usage
