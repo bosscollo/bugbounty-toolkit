@@ -98,16 +98,6 @@ def get_js_links(domain):
     except:
         return []
 
-# --- Google Dorks ---
-def google_dork_suggestions(domain):
-    return [
-        f"site:{domain} inurl:admin",
-        f"site:{domain} intitle:index.of",
-        f"site:{domain} ext:sql | ext:xml",
-        f"site:{domain} filetype:pdf",
-        f"site:{domain} intext:password",
-    ]
-
 # --- Streamlit UI ---
 st.set_page_config(page_title="ReconSpectre Toolkit", layout="wide")
 st.markdown("""
@@ -217,9 +207,6 @@ if st.button("Run Full Recon") and domain:
 
     with st.expander(" JavaScript Files"):
         st.code("\n".join(report.get("JS Files", [])))
-
-    with st.expander(" Google Dork Suggestions"):
-        st.code("\n".join(report.get("Google Dorks", [])))
 
     # --- Download Button ---
     st.download_button(" Download Report (JSON)", json.dumps(report, indent=2), file_name=f"{domain}_recon.json")
