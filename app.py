@@ -81,7 +81,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
-# Scan Ports
+'''# Scan Ports
 def run_nmap_scan(ip):
     try:
         nm = nmap.PortScanner()
@@ -91,7 +91,7 @@ def run_nmap_scan(ip):
         return [], {"error": "Nmap not available in this environment"}
     except Exception as e:
         return [], {"error": str(e)}
-
+'''
 # SSL Information
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
@@ -210,7 +210,7 @@ if st.button("Run Full Recon") and domain:
     # Run all scans
     report['WHOIS + DNS'] = get_whois_dns(domain)
     report['Subdomains'] = subdomain_enum(domain)
-    report['Open Ports'] = run_nmap_scan(domain)[1]
+   # report['Open Ports'] = run_nmap_scan(domain)[1]
     report['SSL Info'] = get_ssl_info(domain)
     report['robots.txt'] = crawl_robots_txt(domain)
     report['JS Files'] = get_js_links(domain)
@@ -227,14 +227,14 @@ if st.button("Run Full Recon") and domain:
     with st.expander(" Subdomains Found"):
         st.write(f"Total: {len(report.get('Subdomains', []))}")
         st.code("\n".join(report.get("Subdomains", [])))
-
+'''
     with st.expander(" Open Ports"):
         ports = report.get("Open Ports", {})
         if "error" in ports:
             st.warning(ports["error"])
         else:
             st.json(ports)
-
+'''
     with st.expander(" SSL Certificate"):
         st.json(report.get("SSL Info", {}))
 
