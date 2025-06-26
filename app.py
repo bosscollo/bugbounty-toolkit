@@ -11,7 +11,7 @@ import json
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
-# --- WHOIS + DNS ---
+# whois & dns
 def get_whois_dns(domain):
     results = {}
     try:
@@ -39,7 +39,7 @@ def get_whois_dns(domain):
 
     return results
 
-# --- Subdomain Enumeration ---
+# Subdomain Enumeration
 def subdomain_enum(domain):
     subs = set()
     try:
@@ -59,7 +59,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
-# --- Port Scan ---
+# Scan Ports
 def run_nmap_scan(ip):
     try:
         nm = nmap.PortScanner()
@@ -70,7 +70,7 @@ def run_nmap_scan(ip):
     except Exception as e:
         return [], {"error": str(e)}
 
-# --- SSL Info ---
+# SSL Information
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -81,7 +81,7 @@ def get_ssl_info(domain):
     except Exception as e:
         return f"SSL Error: {e}"
 
-# --- Robots.txt ---
+# Robots.txt
 def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
@@ -89,7 +89,7 @@ def crawl_robots_txt(domain):
     except:
         return "No robots.txt or request failed"
 
-# --- JavaScript File Extractor ---
+# Js File Extractor
 def get_js_links(domain):
     try:
         r = requests.get(f"http://{domain}", timeout=5)
@@ -98,7 +98,21 @@ def get_js_links(domain):
     except:
         return []
 
-# --- Streamlit UI ---
+# Wayback Machine URLS
+def get_wayback_urls(domain):
+    url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*/&output=json&fl=original&collapse=urlkey"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status == 200:
+            data = response.json()
+            url = [entry[0] for entry in data[1;]]
+            return urls
+        else:
+            return[f"Error: Status code {response.status_code}"]
+    except Expection as e:
+        return [f"Wayback Error: {e}"]
+
+# Streamlit UI
 st.set_page_config(page_title="ReconSpectre Toolkit", layout="wide")
 st.markdown("""
     <style>
@@ -165,7 +179,7 @@ st.markdown("""
 
 st.title("BUGBOUNTY RECON TOOLKIT")
 
-domain = st.text_input("🔎 Enter a domain (e.g., example.com)")
+domain = st.text_input("Enter a domain (e.g., example.com)")
 report = {}  # Initialize empty to avoid NameError
 
 if st.button("Run Full Recon") and domain:
@@ -178,11 +192,11 @@ if st.button("Run Full Recon") and domain:
     report['SSL Info'] = get_ssl_info(domain)
     report['robots.txt'] = crawl_robots_txt(domain)
     report['JS Files'] = get_js_links(domain)
-    report['Google Dorks'] = google_dork_suggestions(domain)
+    report['Wayback URLS'] = get_wayback_urls(domain)
 
     st.success(" Recon complete!")
 
-    st.subheader("📊 Recon Report Breakdown")
+    st.subheader("Recon Report Breakdown")
 
     # --- Sectioned Output ---
     with st.expander(" WHOIS & DNS"):
@@ -208,7 +222,16 @@ if st.button("Run Full Recon") and domain:
     with st.expander(" JavaScript Files"):
         st.code("\n".join(report.get("JS Files", [])))
 
-    # --- Download Button ---
+    with st.expander("Wayback Machine URLs"):
+        urls = report.get("Wayback URLs", [])
+        if isinstance(urls, list) and urls:
+            st.write(f"Total URLs found: {len(urls)}")
+            st.code("\n".join(urls[:50]))
+            st.download_button("Download Full URL List", "\n".join(urls), f"{domain}_wayback_urls.txt")
+        else:
+            st.warning("No URLs found or an error occurred.")
+
+    # Download
     st.download_button(" Download Report (JSON)", json.dumps(report, indent=2), file_name=f"{domain}_recon.json")
 
 else:
