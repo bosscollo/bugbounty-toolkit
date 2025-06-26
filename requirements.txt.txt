@@ -1,0 +1,6 @@
+streamlit
+whois
+dnspython
+requests
+nmap
+beautifulsoup4
