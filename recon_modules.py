@@ -3,7 +3,7 @@
 import whois
 import dns.resolver
 import requests
-import nmap
+#import nmap
 import ssl
 import socket
 from urllib.parse import urlparse
@@ -58,7 +58,7 @@ def subdomain_enum(domain):
 
     return sorted(subs)
 
-
+'''
 def run_nmap_scan(ip):
     try:
         nm = nmap.PortScanner()
@@ -67,7 +67,7 @@ def run_nmap_scan(ip):
     except Exception as e:
         return [], {"error": str(e)}
 
-
+'''
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
