@@ -110,9 +110,11 @@ def get_ssl_info(domain):
         with ctx.wrap_socket(socket.socket(), server_hostname=domain) as s:
             s.settimeout(5)
             s.connect((domain, 443))
-            return s.getpeercert()
+            cert = s.getpeercert()
+            # Safely convert to string if necessary
+            return json.loads(json.dumps(cert, default=str))
     except Exception as e:
-        return f"SSL Error: {e}"
+        return {"SSL Error": str(e)}
 
 def crawl_robots_txt(domain):
     try:
