@@ -127,7 +127,7 @@ def get_wayback_urls(domain):
         response = requests.get(url, timeout=10)
         if response.status == 200:
             data = response.json()
-            url = [entry[0] for entry in data[1;]]
+            url = [entry[0] for entry in data[1:]]
             return urls
         else:
             return[f"Error: Status code {response.status_code}"]
