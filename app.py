@@ -1,6 +1,4 @@
-# app.py
 
-# --- Imports ---
 import streamlit as st
 import json
 import whois
