@@ -7,51 +7,65 @@ import requests
 import ssl
 import socket
 from bs4 import BeautifulSoup
+from io import BytesIO
+from xhtml2pdf import pisa
 
-# --- Streamlit Configuration ---
+from recon_modules import run_full_recon 
+
+# Styling
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
 st.markdown("""
     <style>
-        .main, body, .block-container {
-            background-color: #000000;
-            color: #39FF14;
-            font-family: 'Courier New', monospace;
+        /* Background and text */
+        body, .main, .block-container {
+            background-color: #121212;
+            color: #E0E0E0;
+            font-family: 'Segoe UI', sans-serif;
         }
-        h1, h2, h3 { color: #39FF14 !important; }
+
+        h1, h2, h3 {
+            color: #FFFFFF !important;
+        }
+
         .stTextInput input {
-            background-color: #111;
-            color: #39FF14;
-            border: 1px solid #39FF14;
+            background-color: #1E1E1E;
+            color: #FFFFFF;
+            border: 1px solid #555555;
         }
+
         .stButton>button {
-            background-color: #39FF14;
-            color: #000;
-            border: none;
-            font-weight: bold;
+            background-color: #333333;
+            color: #FFFFFF;
+            border: 1px solid #888888;
+            padding: 0.5rem 1rem;
         }
+
         .stButton>button:hover {
-            background-color: #00cc00;
-            transform: scale(1.02);
+            background-color: #555555;
         }
+
         .st-expander {
-            background-color: #111 !important;
-            color: #39FF14 !important;
-            border: 1px solid #39FF14;
-            border-radius: 8px;
+            background-color: #1C1C1C !important;
+            border: 1px solid #444444;
+            color: #FFFFFF !important;
         }
+
         .stCodeBlock, .stCode, pre {
-            background-color: #000 !important;
-            color: #39FF14 !important;
+            background-color: #1E1E1E !important;
+            color: #CFCFCF !important;
         }
+
         .stDownloadButton>button {
             background-color: #222;
-            color: #39FF14;
-            border: 1px solid #39FF14;
+            color: #FFFFFF;
+            border: 1px solid #888888;
         }
+
         header, footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
+
 
 st.title("Bug Bounty Recon Toolkit")
 
@@ -147,18 +161,12 @@ domain = st.text_input("Enter a domain (e.g., example.com)")
 report = {}
 
 if st.button("Run Full Recon") and domain:
-    st.info("Running Recon... Please wait")
+    st.info("Running recon... please wait.")
 
-    report['WHOIS & DNS'] = get_whois_dns(domain)
-    report['Subdomains'] = subdomain_enum(domain)
-    report['SSL Info'] = get_ssl_info(domain)
-    report['robots.txt'] = crawl_robots_txt(domain)
-    report['JavaScript Files'] = get_js_links(domain)
-    report['Wayback URLs'] = get_wayback_urls(domain)
+    report = run_full_recon(domain)
 
     st.success("Recon complete!")
-
-    st.subheader("Recon Report")
+    st.subheader("📊 Recon Report")
 
     with st.expander("WHOIS & DNS"):
         st.json(report.get("WHOIS & DNS", {}))
@@ -186,8 +194,42 @@ if st.button("Run Full Recon") and domain:
         else:
             st.warning("No URLs found or an error occurred.")
 
-    # Final Download
-    st.download_button("Download Recon Report", json.dumps(report, indent=2), file_name=f"{domain}_recon.json")
+        # Output
+    for section, content in report.items():
+        with st.expander(section):
+            if isinstance(content, dict):
+                st.json(content)
+            elif isinstance(content, list):
+                st.code("\n".join(content))
+            else:
+                st.write(content)
+
+    # JSON to PDF
+    st.download_button(
+        "Download JSON Report",
+        data=json.dumps(report, indent=2),
+        file_name=f"{domain}_recon.json",
+        mime="application/json"
+    )
+
+    # --- PDF Export Function ---
+    def generate_pdf_report(domain, report):
+        html = f"<h1 style='color:#333;'>Recon Report for {domain}</h1><hr>"
+        for section, content in report.items():
+            html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><br><hr>"
+        pdf_file = BytesIO()
+        pisa.CreatePDF(html, dest=pdf_file)
+        pdf_file.seek(0)
+        return pdf_file
+
+    # --- PDF Button ---
+    pdf_bytes = generate_pdf_report(domain, report)
+    st.download_button(
+        "Download PDF Report",
+        data=pdf_bytes,
+        file_name=f"{domain}_recon_report.pdf",
+        mime="application/pdf"
+    )
 
 else:
-    st.info("Enter a domain above and click 'Run Full Recon' to begin.")
+    st.info("Enter a domain above and click **Run Full Recon** to begin.")
