@@ -100,7 +100,6 @@ def run_full_recon(domain):
     report = {}
     report["WHOIS + DNS"] = get_whois_dns(domain)
     report["Subdomains"] = subdomain_enum(domain)
-    report["Open Ports"] = run_nmap_scan(domain)[1]
     report["SSL Info"] = get_ssl_info(domain)
     report["robots.txt"] = crawl_robots_txt(domain)
     report["JavaScript Files"] = get_js_links(domain)
