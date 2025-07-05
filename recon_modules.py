@@ -5,11 +5,16 @@ import whois
 import dns.resolver
 import ssl
 import socket
-from bs4 import BeautifulSoup
 import json
+from bs4 import BeautifulSoup
 import streamlit as st
 
-# --- WHOIS & DNS ---
+# Load Hugging Face API key from Streamlit secrets
+HUGGINGFACE_TOKEN = st.secrets.get("huggingface", {}).get("token", "")
+
+# -------------------------
+# WHOIS + DNS Lookup
+# -------------------------
 def get_whois_dns(domain):
     result = {}
     try:
@@ -17,12 +22,13 @@ def get_whois_dns(domain):
         result["WHOIS"] = {
             "Domain": str(w.domain_name),
             "Registrar": str(w.registrar),
-            "Created": str(w.creation_date),
-            "Expires": str(w.expiration_date),
+            "Creation": str(w.creation_date),
+            "Expiry": str(w.expiration_date),
             "Emails": str(w.emails)
         }
     except Exception as e:
         result["WHOIS"] = f"WHOIS error: {e}"
+
     try:
         result["DNS"] = {
             "A": [str(r) for r in dns.resolver.resolve(domain, "A")],
@@ -32,26 +38,33 @@ def get_whois_dns(domain):
         }
     except Exception as e:
         result["DNS"] = f"DNS error: {e}"
+
     return result
 
-# --- Subdomains ---
+# -------------------------
+# Subdomain Enumeration
+# -------------------------
 def subdomain_enum(domain):
     subs = set()
     try:
         crt = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
         for entry in crt.json():
             subs.update(entry.get("name_value", "").split("\n"))
-    except: pass
+    except:
+        pass
     try:
         hackertarget = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
         for line in hackertarget.text.splitlines():
             sub = line.split(",")[0]
             if domain in sub:
                 subs.add(sub)
-    except: pass
+    except:
+        pass
     return sorted(subs)
 
-# --- SSL ---
+# -------------------------
+# SSL Certificate Info
+# -------------------------
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -63,24 +76,30 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
-# --- robots.txt ---
+# -------------------------
+# robots.txt Extraction
+# -------------------------
 def crawl_robots_txt(domain):
     try:
-        r = requests.get(f"http://{domain}/robots.txt", timeout=5)
-        return r.text
+        res = requests.get(f"http://{domain}/robots.txt", timeout=5)
+        return res.text
     except:
-        return "No robots.txt or request failed"
+        return "No robots.txt found or request failed"
 
-# --- JavaScript Files ---
+# -------------------------
+# JavaScript Files
+# -------------------------
 def get_js_links(domain):
     try:
-        r = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(r.text, "html.parser")
-        return [s["src"] for s in soup.find_all("script") if s.get("src")]
+        res = requests.get(f"http://{domain}", timeout=5)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        return [s['src'] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
-# --- Wayback URLs ---
+# -------------------------
+# Wayback Machine URLs
+# -------------------------
 def get_wayback_urls(domain):
     try:
         url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
@@ -90,7 +109,9 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-# --- Google Dorks ---
+# -------------------------
+# Google Dork Suggestions
+# -------------------------
 def generate_dorks(domain):
     base = f"site:{domain}"
     return [
@@ -102,7 +123,9 @@ def generate_dorks(domain):
         f"{base} password",
     ]
 
-# --- HTTP Headers ---
+# -------------------------
+# HTTP Header Fetching
+# -------------------------
 def get_http_headers(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -110,23 +133,34 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
-# --- Hugging Face Summary (for HTTP headers only) ---
+# -------------------------
+# AI Summary of HTTP Headers via Hugging Face
+# -------------------------
 def explain_http_headers(headers):
-    token = st.secrets.get("huggingface", {}).get("token")
-    if not token:
-        return "⚠️ Hugging Face token not found in secrets.toml."
+    if not HUGGINGFACE_TOKEN:
+        return "⚠️ Hugging Face token missing in secrets.toml"
+    
     try:
-        prompt = "Explain these HTTP headers in beginner-friendly terms:\n" + json.dumps(headers, indent=2)
-        res = requests.post(
-            "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"inputs": prompt[:3000]}
+        prompt = f"Explain these HTTP headers in beginner-friendly terms:\n{json.dumps(headers, indent=2)}"
+        api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+        response = requests.post(
+            api_url,
+            headers={"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"},
+            json={"inputs": prompt[:3000]}  # Limit size
         )
-        return res.json()[0]["summary_text"]
+        result = response.json()
+        if isinstance(result, list) and "summary_text" in result[0]:
+            return result[0]["summary_text"]
+        elif isinstance(result, dict) and "error" in result:
+            return f"❌ API Error: {result['error']}"
+        else:
+            return "⚠️ Unexpected response format from Hugging Face."
     except Exception as e:
         return f"⚠️ Failed to generate explanation: {e}"
 
-# --- Master Recon Function ---
+# -------------------------
+# Run Full Recon Process
+# -------------------------
 def run_full_recon(domain):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
@@ -137,4 +171,5 @@ def run_full_recon(domain):
     report["Wayback URLs"] = get_wayback_urls(domain)
     report["Google Dorks"] = generate_dorks(domain)
     report["HTTP Headers"] = get_http_headers(domain)
+    report["💡 HTTP Header Explanation (AI)"] = explain_http_headers(report["HTTP Headers"])
     return report
