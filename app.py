@@ -4,10 +4,10 @@ from io import BytesIO
 from xhtml2pdf import pisa
 from recon_modules import run_full_recon
 
-# Page Configuration
+# Page Config
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
-# Dark Theme Styling
+# Styling
 st.markdown("""
 <style>
 body, .main, .block-container {
@@ -46,7 +46,7 @@ header, footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# UI Layout
+# layout
 st.title("Bug Bounty Recon Toolkit")
 
 domain = st.text_input("🔍 Enter a domain (e.g. example.com)")
@@ -86,7 +86,7 @@ if st.button("Run Full Recon") and domain:
     )
 
     st.download_button(
-        "📁 Download JSON Report",
+        "Download JSON Report",
         data=json.dumps(report, indent=2),
         file_name=f"{domain}_recon.json",
         mime="application/json"
