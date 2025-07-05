@@ -1,0 +1,25 @@
+name: Keep Streamlit App Alive
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 7 AM Nairobi
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Update last_alive.txt
+        run: |
+          echo "Last alive: $(date -u)" > last_alive.txt
+
+      - name: Commit and push
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add last_alive.txt
+          git commit -m "ping"
+          git push
