@@ -5,14 +5,15 @@ import whois
 import dns.resolver
 import ssl
 import socket
-from bs4 import BeautifulSoup
 import json
+from bs4 import BeautifulSoup
 import streamlit as st
 
-# Hugging Face token from secrets.toml
-HF_TOKEN = st.secrets["huggingface"]["token"]
+# Secrets
+HIBP_KEY = st.secrets.get("hibp_api_key", "")
+HF_TOKEN = st.secrets.get("huggingface", {}).get("token", "")
 
-# WHOIS + DNS
+# --- WHOIS & DNS ---
 def get_whois_dns(domain):
     result = {}
     try:
@@ -39,7 +40,7 @@ def get_whois_dns(domain):
 
     return result
 
-# Subdomain enumeration
+# --- Subdomains ---
 def subdomain_enum(domain):
     subs = set()
     try:
@@ -58,7 +59,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
-# SSL info
+# --- SSL ---
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -70,24 +71,24 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
-# Robots.txt
+# --- robots.txt ---
 def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
         return res.text
     except:
-        return "No robots.txt found"
+        return "No robots.txt or request failed"
 
-# JS file extraction
+# --- JS Files ---
 def get_js_links(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(res.text, "html.parser")
+        soup = BeautifulSoup(res.text, 'html.parser')
         return [s['src'] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
-# Wayback URLs
+# --- Wayback URLs ---
 def get_wayback_urls(domain):
     try:
         url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
@@ -97,14 +98,13 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-# HIBP email breach
+# --- Breach Check ---
 def check_email_breaches(email):
-    hibp_key = st.secrets.get("hibp_api_key", "")
-    if not email or not hibp_key:
-        return "No email provided or HIBP key missing"
+    if not email or not HIBP_KEY:
+        return "No email or missing HIBP API key"
     try:
         headers = {
-            "hibp-api-key": hibp_key,
+            "hibp-api-key": HIBP_KEY,
             "user-agent": "ReconToolkit"
         }
         res = requests.get(f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}?truncateResponse=true", headers=headers)
@@ -113,11 +113,11 @@ def check_email_breaches(email):
         elif res.status_code == 404:
             return ["No breaches found."]
         else:
-            return [f"Error: {res.status_code}"]
+            return [f"HIBP Error: {res.status_code}"]
     except Exception as e:
-        return [f"HIBP Error: {e}"]
+        return [f"HIBP Exception: {e}"]
 
-# Google Dorking
+# --- Google Dorks ---
 def generate_dorks(domain):
     base = f"site:{domain}"
     return [
@@ -126,10 +126,10 @@ def generate_dorks(domain):
         f"{base} ext:sql | ext:xml | ext:conf",
         f"{base} inurl:login",
         f"{base} filetype:pdf",
-        f"{base} password",
+        f"{base} password"
     ]
 
-# HTTP Headers
+# --- HTTP Headers ---
 def get_http_headers(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -137,8 +137,10 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
-# Hugging Face Summary
+# --- Hugging Face AI Summary ---
 def summarize_text(text):
+    if not HF_TOKEN:
+        return "Hugging Face token missing"
     try:
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
         api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
@@ -147,7 +149,7 @@ def summarize_text(text):
     except Exception as e:
         return f"Summarization Error: {e}"
 
-# Run everything
+# --- Main Recon Runner ---
 def run_full_recon(domain, email=None):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
@@ -159,9 +161,8 @@ def run_full_recon(domain, email=None):
     report["Google Dorks"] = generate_dorks(domain)
     report["HTTP Headers"] = get_http_headers(domain)
 
-    # Add summarization
-    headers_text = json.dumps(report["HTTP Headers"], indent=2)
-    report["Header Summary (AI)"] = summarize_text(headers_text)
+    headers_summary = summarize_text(json.dumps(report["HTTP Headers"], indent=2))
+    report["Header Summary (AI)"] = headers_summary
 
     if email:
         report["Email Breach Check"] = check_email_breaches(email)
