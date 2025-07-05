@@ -5,17 +5,14 @@ import whois
 import dns.resolver
 import ssl
 import socket
-from bs4 import BeautifulSoup
 import json
-import os
-
-# Secrets from Streamlit Cloud
+from bs4 import BeautifulSoup
 import streamlit as st
 
-OPENAI_KEY = st.secrets.get("openai_api_key", "")
-HIBP_KEY = st.secrets.get("hibp_api_key", "")
+# Load Hugging Face API Key
+HF_TOKEN = st.secrets["huggingface"]["token"]
 
-# WHOIS + DNS Lookup
+# --- WHOIS and DNS ---
 def get_whois_dns(domain):
     result = {}
     try:
@@ -42,18 +39,18 @@ def get_whois_dns(domain):
 
     return result
 
-# Subdomain Enumeration
+# --- Subdomain Enumeration ---
 def subdomain_enum(domain):
     subs = set()
     try:
-        crt = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
-        for entry in crt.json():
+        res = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
+        for entry in res.json():
             subs.update(entry.get("name_value", "").split("\n"))
     except:
         pass
     try:
-        hackertarget = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
-        for line in hackertarget.text.splitlines():
+        res = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+        for line in res.text.splitlines():
             sub = line.split(",")[0]
             if domain in sub:
                 subs.add(sub)
@@ -61,7 +58,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
-# SSL Info
+# --- SSL Info ---
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -73,7 +70,7 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
-# Robots.txt
+# --- robots.txt ---
 def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
@@ -81,45 +78,28 @@ def crawl_robots_txt(domain):
     except:
         return "No robots.txt or request failed"
 
-# JS Files
+# --- JavaScript links ---
 def get_js_links(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        return [s['src'] for s in soup.find_all("script") if s.get("src")]
+        soup = BeautifulSoup(res.text, "html.parser")
+        return [s["src"] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
-# Wayback URLs
+# --- Wayback Machine URLs ---
 def get_wayback_urls(domain):
     try:
-        url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
-        res = requests.get(url, timeout=10)
+        res = requests.get(
+            f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey",
+            timeout=10
+        )
         data = res.json()
         return [entry[0] for entry in data[1:]] if len(data) > 1 else []
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-# HIBP Email Breach
-def check_email_breaches(email):
-    if not email or not HIBP_KEY:
-        return "No email provided or missing HIBP key"
-    try:
-        headers = {
-            "hibp-api-key": HIBP_KEY,
-            "user-agent": "ReconToolkit"
-        }
-        res = requests.get(f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}?truncateResponse=true", headers=headers)
-        if res.status_code == 200:
-            return [breach['Name'] for breach in res.json()]
-        elif res.status_code == 404:
-            return ["No breaches found."]
-        else:
-            return [f"Error: {res.status_code}"]
-    except Exception as e:
-        return [f"HIBP Error: {e}"]
-
-# Google Dork Suggestions
+# --- Google Dork Generator ---
 def generate_dorks(domain):
     base = f"site:{domain}"
     return [
@@ -131,7 +111,7 @@ def generate_dorks(domain):
         f"{base} password",
     ]
 
-# HTTP Headers
+# --- HTTP Headers ---
 def get_http_headers(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -139,29 +119,25 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
-# OpenAI Summary
-def summarize_headers(headers):
-    if not OPENAI_KEY:
-        return "OpenAI API key missing"
+# --- Hugging Face AI Summary ---
+def summarize_headers(headers_dict):
     try:
-        prompt = f"Explain these HTTP headers for a beginner:\n{json.dumps(headers, indent=2)}"
+        payload = {
+            "inputs": f"Explain these HTTP headers for beginners:\n{json.dumps(headers_dict, indent=2)}"
+        }
+        headers = {
+            "Authorization": f"Bearer {HF_TOKEN}"
+        }
         response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENAI_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-3.5-turbo",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.3
-            }
+            "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+            headers=headers,
+            json=payload
         )
-        return response.json()['choices'][0]['message']['content'].strip()
+        return response.json()[0]["summary_text"]
     except Exception as e:
-        return f"OpenAI Summary Error: {e}"
+        return f"Summary Error: {e}"
 
-# Run Full Recon
+# --- Recon Runner ---
 def run_full_recon(domain, email=None):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
@@ -173,6 +149,4 @@ def run_full_recon(domain, email=None):
     report["Google Dorks"] = generate_dorks(domain)
     report["HTTP Headers"] = get_http_headers(domain)
     report["Header Summary (AI)"] = summarize_headers(report["HTTP Headers"])
-    if email:
-        report["Email Breach Check"] = check_email_breaches(email)
     return report
