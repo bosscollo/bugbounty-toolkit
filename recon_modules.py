@@ -9,10 +9,7 @@ from bs4 import BeautifulSoup
 import json
 import streamlit as st
 
-# Hugging Face token from secrets.toml
-HF_API_KEY = st.secrets.get("huggingface", {}).get("token", "")
-
-# --- WHOIS + DNS ---
+# --- WHOIS & DNS ---
 def get_whois_dns(domain):
     result = {}
     try:
@@ -20,13 +17,12 @@ def get_whois_dns(domain):
         result["WHOIS"] = {
             "Domain": str(w.domain_name),
             "Registrar": str(w.registrar),
-            "Creation": str(w.creation_date),
-            "Expiry": str(w.expiration_date),
+            "Created": str(w.creation_date),
+            "Expires": str(w.expiration_date),
             "Emails": str(w.emails)
         }
     except Exception as e:
         result["WHOIS"] = f"WHOIS error: {e}"
-
     try:
         result["DNS"] = {
             "A": [str(r) for r in dns.resolver.resolve(domain, "A")],
@@ -36,7 +32,6 @@ def get_whois_dns(domain):
         }
     except Exception as e:
         result["DNS"] = f"DNS error: {e}"
-
     return result
 
 # --- Subdomains ---
@@ -46,19 +41,17 @@ def subdomain_enum(domain):
         crt = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
         for entry in crt.json():
             subs.update(entry.get("name_value", "").split("\n"))
-    except:
-        pass
+    except: pass
     try:
         hackertarget = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
         for line in hackertarget.text.splitlines():
             sub = line.split(",")[0]
             if domain in sub:
                 subs.add(sub)
-    except:
-        pass
+    except: pass
     return sorted(subs)
 
-# --- SSL Certificate ---
+# --- SSL ---
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -73,17 +66,17 @@ def get_ssl_info(domain):
 # --- robots.txt ---
 def crawl_robots_txt(domain):
     try:
-        res = requests.get(f"http://{domain}/robots.txt", timeout=5)
-        return res.text
+        r = requests.get(f"http://{domain}/robots.txt", timeout=5)
+        return r.text
     except:
         return "No robots.txt or request failed"
 
 # --- JavaScript Files ---
 def get_js_links(domain):
     try:
-        res = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        return [s['src'] for s in soup.find_all("script") if s.get("src")]
+        r = requests.get(f"http://{domain}", timeout=5)
+        soup = BeautifulSoup(r.text, "html.parser")
+        return [s["src"] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
@@ -97,7 +90,7 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-# --- Google Dork Suggestions ---
+# --- Google Dorks ---
 def generate_dorks(domain):
     base = f"site:{domain}"
     return [
@@ -117,28 +110,23 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
-# --- Hugging Face AI Summary ---
-def summarize_text(text):
-    if not HF_API_KEY:
-        return "Hugging Face API key missing."
+# --- Hugging Face Summary (for HTTP headers only) ---
+def explain_http_headers(headers):
+    token = st.secrets.get("huggingface", {}).get("token")
+    if not token:
+        return "⚠️ Hugging Face token not found in secrets.toml."
     try:
-        headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-        api_url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-        response = requests.post(api_url, headers=headers, json={"inputs": text})
-        return response.json()[0]["summary_text"]
+        prompt = "Explain these HTTP headers in beginner-friendly terms:\n" + json.dumps(headers, indent=2)
+        res = requests.post(
+            "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"inputs": prompt[:3000]}
+        )
+        return res.json()[0]["summary_text"]
     except Exception as e:
-        return f"⚠️ Summary error: {e}"
+        return f"⚠️ Failed to generate explanation: {e}"
 
-# --- Clean & Limit Input for Summary ---
-def extract_summary_input(report):
-    text = ""
-    important = ["WHOIS & DNS", "Subdomains", "SSL Info", "robots.txt", "Wayback URLs"]
-    for key in important:
-        if key in report:
-            text += f"{key}:\n{str(report[key])[:1000]}\n\n"
-    return text[:3000]
-
-# --- Run All ---
+# --- Master Recon Function ---
 def run_full_recon(domain):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
