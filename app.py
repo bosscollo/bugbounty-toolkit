@@ -4,16 +4,12 @@ import streamlit as st
 import json
 from io import BytesIO
 from xhtml2pdf import pisa
-from recon_modules import run_full_recon, explain_http_headers
+from recon_modules import run_full_recon
 
-# -----------------------
-# Page Setup
-# -----------------------
+# Page Config
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
-# -----------------------
-# Dark UI Styling
-# -----------------------
+# Styling (dark mode)
 st.markdown("""
 <style>
 body, .main, .block-container {
@@ -52,16 +48,14 @@ header, footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
-# Title & Inputs
-# -----------------------
+# Title
 st.title("Bug Bounty Recon Toolkit")
+
+# Inputs
 domain = st.text_input("🔍 Enter a domain (e.g. example.com)")
 report = {}
 
-# -----------------------
-# Run Recon Button
-# -----------------------
+# Run recon
 if st.button("Run Full Recon") and domain:
     st.info("Running recon... Please wait.")
     report = run_full_recon(domain)
@@ -69,6 +63,7 @@ if st.button("Run Full Recon") and domain:
 
     st.subheader("📊 Recon Report")
 
+    # Output: All Sections (including AI summary)
     for section, content in report.items():
         with st.expander(section):
             if isinstance(content, dict):
@@ -78,15 +73,7 @@ if st.button("Run Full Recon") and domain:
             else:
                 st.write(content or "No data.")
 
-    # Show headers + explanation
-    if "HTTP Headers" in report:
-        with st.expander("💡 HTTP Header Explanation (AI)"):
-            explanation = explain_http_headers(report["HTTP Headers"])
-            st.write(explanation)
-
-    # -----------------------
-    # JSON Download Button
-    # -----------------------
+    # JSON download
     st.download_button(
         "📁 Download JSON Report",
         data=json.dumps(report, indent=2),
@@ -94,9 +81,7 @@ if st.button("Run Full Recon") and domain:
         mime="application/json"
     )
 
-    # -----------------------
-    # PDF Download Button
-    # -----------------------
+    # PDF download
     def generate_pdf(domain, data):
         try:
             html = f"<h1>Recon Report for {domain}</h1><hr>"
