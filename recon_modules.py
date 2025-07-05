@@ -1,15 +1,15 @@
+# recon_modules.py
+
 import requests
 import whois
 import dns.resolver
 import ssl
 import socket
-from bs4 import BeautifulSoup
 import json
+from bs4 import BeautifulSoup
 import streamlit as st
 
-# -------------------
-# HuggingFace Summary
-# ------------------
+# Hugging Face token from secrets
 def summarize_text(text):
     try:
         headers = {"Authorization": f"Bearer {st.secrets['huggingface']['token']}"}
@@ -19,9 +19,7 @@ def summarize_text(text):
     except:
         return "⚠️ Could not generate summary."
 
-# -------------------
-# Recon Functions
-# -------------------
+# WHOIS and DNS Lookup
 def get_whois_dns(domain):
     result = {}
     try:
@@ -48,17 +46,18 @@ def get_whois_dns(domain):
 
     return result
 
+# Subdomain Enumeration
 def subdomain_enum(domain):
     subs = set()
     try:
-        crt = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
-        for entry in crt.json():
+        res = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json")
+        for entry in res.json():
             subs.update(entry.get("name_value", "").split("\n"))
     except:
         pass
     try:
-        hackertarget = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
-        for line in hackertarget.text.splitlines():
+        res = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}")
+        for line in res.text.splitlines():
             sub = line.split(",")[0]
             if domain in sub:
                 subs.add(sub)
@@ -66,6 +65,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
+# SSL Info
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -77,21 +77,24 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
+# Robots.txt
 def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
         return res.text
     except:
-        return "No robots.txt found or request failed"
+        return "No robots.txt or request failed"
 
+# JS Links
 def get_js_links(domain):
     try:
-        res = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
+        r = requests.get(f"http://{domain}", timeout=5)
+        soup = BeautifulSoup(r.text, 'html.parser')
         return [s['src'] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
+# Wayback Machine URLs
 def get_wayback_urls(domain):
     try:
         url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
@@ -101,6 +104,7 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
+# Google Dorks
 def generate_dorks(domain):
     base = f"site:{domain}"
     return [
@@ -109,16 +113,18 @@ def generate_dorks(domain):
         f"{base} ext:sql | ext:xml | ext:conf",
         f"{base} inurl:login",
         f"{base} filetype:pdf",
-        f"{base} password",
+        f"{base} password"
     ]
 
+# HTTP Headers
 def get_http_headers(domain):
     try:
-        res = requests.get(f"http://{domain}", timeout=5)
-        return dict(res.headers)
+        r = requests.get(f"http://{domain}", timeout=5)
+        return dict(r.headers)
     except Exception as e:
-        return {"Header Error": str(e)}
+        return {"HTTP Header Error": str(e)}
 
+# Final Recon Function
 def run_full_recon(domain):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
