@@ -83,16 +83,6 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-def generate_dorks(domain):
-    base = f"site:{domain}"
-    return [
-        f"{base} inurl:admin",
-        f"{base} intitle:index.of",
-        f"{base} ext:sql | ext:xml | ext:conf",
-        f"{base} inurl:login",
-        f"{base} filetype:pdf",
-        f"{base} password"
-    ]
 
 def get_http_headers(domain):
     try:
@@ -100,26 +90,6 @@ def get_http_headers(domain):
         return dict(res.headers)
     except Exception as e:
         return {"Header Error": str(e)}
-
-def explain_headers(headers):
-    explanations = {
-        "Cache-Control": "Controls caching policies to avoid storing sensitive data.",
-        "Set-Cookie": "Used to store data on the client side (like session ID).",
-        "X-Frame-Options": "Prevents the site from being loaded inside a frame (clickjacking protection).",
-        "X-XSS-Protection": "Protects against cross-site scripting attacks.",
-        "Content-Type": "Tells the browser the content type (e.g., text/html).",
-        "Strict-Transport-Security": "Enforces secure (HTTPS) connections to the server.",
-        "Referrer-Policy": "Controls how much referrer info is sent when navigating.",
-        "X-Content-Type-Options": "Blocks MIME-sniffing to reduce exposure to drive-by attacks.",
-        "Server": "Reveals the backend server (e.g., Apache or Nginx)."
-    }
-    explanation_output = {}
-    for key, val in headers.items():
-        explanation_output[key] = {
-            "value": val,
-            "explanation": explanations.get(key, "No explanation available.")
-        }
-    return explanation_output
 
 def run_full_recon(domain):
     report = {}
@@ -129,8 +99,5 @@ def run_full_recon(domain):
     report["robots.txt"] = crawl_robots_txt(domain)
     report["JavaScript Files"] = get_js_links(domain)
     report["Wayback URLs"] = get_wayback_urls(domain)
-    report["Google Dorks"] = generate_dorks(domain)
-    headers = get_http_headers(domain)
     report["HTTP Headers"] = headers
-    report["💡 HTTP Header Explanation (AI)"] = explain_headers(headers)
     return report
