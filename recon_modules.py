@@ -1,3 +1,5 @@
+# recon_modules.py
+
 import requests
 import whois
 import dns.resolver
@@ -6,6 +8,7 @@ import socket
 from bs4 import BeautifulSoup
 import json
 
+# --- WHOIS and DNS ---
 def get_whois_dns(domain):
     result = {}
     try:
@@ -30,6 +33,7 @@ def get_whois_dns(domain):
         result["DNS"] = f"DNS error: {e}"
     return result
 
+# --- Subdomain Enumeration ---
 def subdomain_enum(domain):
     subs = set()
     try:
@@ -48,6 +52,7 @@ def subdomain_enum(domain):
         pass
     return sorted(subs)
 
+# --- SSL Info ---
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -59,6 +64,7 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
+# --- robots.txt ---
 def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
@@ -66,6 +72,7 @@ def crawl_robots_txt(domain):
     except:
         return "robots.txt not accessible."
 
+# --- JavaScript File Links ---
 def get_js_links(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -74,6 +81,7 @@ def get_js_links(domain):
     except:
         return []
 
+# --- Wayback Machine URLs ---
 def get_wayback_urls(domain):
     try:
         url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
@@ -83,7 +91,7 @@ def get_wayback_urls(domain):
     except Exception as e:
         return [f"Wayback Error: {e}"]
 
-
+# --- HTTP Headers ---
 def get_http_headers(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -91,6 +99,7 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
+# --- Full Recon ---
 def run_full_recon(domain):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
@@ -99,5 +108,5 @@ def run_full_recon(domain):
     report["robots.txt"] = crawl_robots_txt(domain)
     report["JavaScript Files"] = get_js_links(domain)
     report["Wayback URLs"] = get_wayback_urls(domain)
-    report["HTTP Headers"] = headers
+    report["HTTP Headers"] = get_http_headers(domain)
     return report
