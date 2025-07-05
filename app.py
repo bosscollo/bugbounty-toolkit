@@ -4,16 +4,12 @@ import streamlit as st
 import json
 from io import BytesIO
 from xhtml2pdf import pisa
-from recon_modules import run_full_recon, summarize_text
+from recon_modules import run_full_recon, summarize_text, extract_summary_input
 
-# -----------------------
-# Streamlit Page Setup
-# -----------------------
+# Page Setup
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
-# -----------------------
 # Dark Theme Styling
-# -----------------------
 st.markdown("""
 <style>
 body, .main, .block-container {
@@ -52,23 +48,21 @@ header, footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
-# UI: Title and Input
-# -----------------------
+# Title
 st.title("Bug Bounty Recon Toolkit")
 
+# Inputs
 domain = st.text_input("🔍 Enter a domain (e.g. example.com)")
 
 report = {}
 
-# -----------------------
-# Button to Start Recon
-# -----------------------
+# On Button Click
 if st.button("Run Full Recon") and domain:
     st.info("Running recon... Please wait.")
     report = run_full_recon(domain)
     st.success("Recon complete!")
 
+    # Sectioned Report Display
     st.subheader("📊 Recon Report")
     for section, content in report.items():
         with st.expander(section):
@@ -79,9 +73,16 @@ if st.button("Run Full Recon") and domain:
             else:
                 st.write(content or "No data.")
 
-    # -----------------------
-    # JSON Download Button
-    # -----------------------
+    # --- AI Summary (Auto Loaded) ---
+    st.subheader("🧠 AI Summary of Recon Report")
+    try:
+        summary_input = extract_summary_input(report)
+        summary = summarize_text(summary_input)
+        st.write(summary)
+    except Exception as e:
+        st.warning(f"⚠️ Could not generate summary: {e}")
+
+    # --- JSON Download ---
     st.download_button(
         "📁 Download JSON Report",
         data=json.dumps(report, indent=2),
@@ -89,41 +90,23 @@ if st.button("Run Full Recon") and domain:
         mime="application/json"
     )
 
-    # -----------------------
-    # PDF Download Button
-    # -----------------------
+    # --- PDF Download ---
     def generate_pdf(domain, data):
-        try:
-            html = f"<h1>Recon Report for {domain}</h1><hr>"
-            for section, content in data.items():
-                html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><hr>"
-            pdf = BytesIO()
-            pisa.CreatePDF(html, dest=pdf)
-            pdf.seek(0)
-            return pdf
-        except Exception as e:
-            st.error(f"PDF generation failed: {e}")
-            return None
+        html = f"<h1>Recon Report for {domain}</h1><hr>"
+        for section, content in data.items():
+            html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><hr>"
+        pdf = BytesIO()
+        pisa.CreatePDF(html, dest=pdf)
+        pdf.seek(0)
+        return pdf
 
     pdf_file = generate_pdf(domain, report)
-    if pdf_file:
-        st.download_button(
-            "📄 Download PDF Report",
-            data=pdf_file,
-            file_name=f"{domain}_recon_report.pdf",
-            mime="application/pdf"
-        )
-    else:
-        st.warning("PDF report could not be generated.")
-
-    # --- Auto Display Hugging Face Summary ---
-st.markdown("### 🧠 AI Summary of Recon Report")
-try:
-    summary_input = json.dumps(report, indent=2)[:3000]
-    summary = summarize_text(summary_input)
-    st.write(summary)
-except Exception as e:
-    st.warning(f"Could not generate summary: {e}")
+    st.download_button(
+        "📄 Download PDF Report",
+        data=pdf_file,
+        file_name=f"{domain}_recon_report.pdf",
+        mime="application/pdf"
+    )
 
 else:
-    st.info("Enter a domain above and click **Run Full Recon** to begin.")
+    st.info("Enter a domain and click **Run Full Recon** to begin.")
