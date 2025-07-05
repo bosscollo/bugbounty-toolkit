@@ -1,22 +1,28 @@
 # Bug Bounty Recon Toolkit
-This is a simple reconnaissance tool built in Python using Streamlit. It helps you gather public information about a target domain 
-Useful for bug bounty hunters and penetration testers.
 
-##  Features
+![Keep Alive](https://github.com/bosscollo/bugbounty-toolkit/actions/workflows/keepalive.yml/badge.svg)
+
+A beginner-friendly reconnaissance tool for ethical hackers and cybersecurity enthusiasts.
+
+**Live App:** [bugbounty-toolkit.streamlit.app](https://bugbounty-toolkit.streamlit.app)
+
+---
+
+## Features
 
 - WHOIS & DNS Lookup  
 - Subdomain Enumeration  
 - SSL Certificate Info  
-- robots.txt Crawler  
-- JS File Extraction  
-- Google Dork Suggestions  
-- Optional Port Scan (if Nmap is installed)
-## N/B
-To be improved overtime as is actively being developed-better UI,less errors and an integration with AI for intelligent recon analysis
-(This is just for the start.Watch out for more!!!) 
+- robots.txt Extraction  
+- JavaScript File Discovery  
+- Wayback Machine URL Gathering  
+- HTTP Header Inspection  
+- PDF Report Downloads  
 
-## Usage
+## How to Run Locally
 
 ```bash
+git clone https://github.com/bosscollo/bugbounty-toolkit.git
+cd bugbounty-toolkit
+pip install -r requirements.txt
 streamlit run app.py
-
