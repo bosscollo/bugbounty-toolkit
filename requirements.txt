@@ -1,7 +1,6 @@
 streamlit
-whois
-dnspython
 requests
+python-whois
+dnspython
 beautifulsoup4
 xhtml2pdf
-
