@@ -116,14 +116,14 @@ if st.button("Run Full Recon") and domain:
     else:
         st.warning("PDF report could not be generated.")
 
-    # -----------------------
-    # Optional AI Summary
-    # -----------------------
-    if st.checkbox("🧠 Summarize This Report Using AI"):
-        summary_input = json.dumps(report, indent=2)[:3000]
-        summary = summarize_text(summary_input)
-        st.markdown("### 📝 AI Summary")
-        st.write(summary)
+    # --- Auto Display Hugging Face Summary ---
+st.markdown("### 🧠 AI Summary of Recon Report")
+try:
+    summary_input = json.dumps(report, indent=2)[:3000]
+    summary = summarize_text(summary_input)
+    st.write(summary)
+except Exception as e:
+    st.warning(f"Could not generate summary: {e}")
 
 else:
     st.info("Enter a domain above and click **Run Full Recon** to begin.")
