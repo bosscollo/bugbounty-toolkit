@@ -4,30 +4,8 @@ import dns.resolver
 import ssl
 import socket
 from bs4 import BeautifulSoup
-import streamlit as st
 import json
 
-# --------------------
-# Summarizer for HTTP Headers
-# --------------------
-def explain_headers(headers):
-    if not st.secrets.get("huggingface", {}).get("token"):
-        return "Missing Hugging Face token"
-    try:
-        headers_str = json.dumps(headers, indent=2)[:1500]
-        prompt = f"Explain these HTTP headers in simple terms for beginners:\n{headers_str}"
-        res = requests.post(
-            "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
-            headers={"Authorization": f"Bearer {st.secrets['huggingface']['token']}"},
-            json={"inputs": prompt}
-        )
-        return res.json()[0]["summary_text"]
-    except Exception as e:
-        return f"⚠️ Failed to summarize headers: {e}"
-
-# --------------------
-# WHOIS + DNS
-# --------------------
 def get_whois_dns(domain):
     result = {}
     try:
@@ -35,13 +13,12 @@ def get_whois_dns(domain):
         result["WHOIS"] = {
             "Domain": str(w.domain_name),
             "Registrar": str(w.registrar),
-            "Created": str(w.creation_date),
-            "Expires": str(w.expiration_date),
+            "Creation": str(w.creation_date),
+            "Expiry": str(w.expiration_date),
             "Emails": str(w.emails)
         }
     except Exception as e:
         result["WHOIS"] = f"WHOIS error: {e}"
-
     try:
         result["DNS"] = {
             "A": [str(r) for r in dns.resolver.resolve(domain, "A")],
@@ -51,25 +28,26 @@ def get_whois_dns(domain):
         }
     except Exception as e:
         result["DNS"] = f"DNS error: {e}"
-
     return result
 
-# --------------------
-# Subdomain Enumeration
-# --------------------
 def subdomain_enum(domain):
     subs = set()
     try:
-        r = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
-        for entry in r.json():
+        crt = requests.get(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=10)
+        for entry in crt.json():
             subs.update(entry.get("name_value", "").split("\n"))
+    except:
+        pass
+    try:
+        ht = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+        for line in ht.text.splitlines():
+            sub = line.split(",")[0]
+            if domain in sub:
+                subs.add(sub)
     except:
         pass
     return sorted(subs)
 
-# --------------------
-# SSL Certificate
-# --------------------
 def get_ssl_info(domain):
     ctx = ssl.create_default_context()
     try:
@@ -81,43 +59,31 @@ def get_ssl_info(domain):
     except Exception as e:
         return {"SSL Error": str(e)}
 
-# --------------------
-# Robots.txt
-# --------------------
-def get_robots_txt(domain):
+def crawl_robots_txt(domain):
     try:
         res = requests.get(f"http://{domain}/robots.txt", timeout=5)
         return res.text
     except:
-        return "robots.txt not found"
+        return "robots.txt not accessible."
 
-# --------------------
-# JavaScript Files
-# --------------------
-def get_js_files(domain):
+def get_js_links(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
-        soup = BeautifulSoup(res.text, "html.parser")
-        return [script["src"] for script in soup.find_all("script") if script.get("src")]
+        soup = BeautifulSoup(res.text, 'html.parser')
+        return [s['src'] for s in soup.find_all("script") if s.get("src")]
     except:
         return []
 
-# --------------------
-# Wayback URLs
-# --------------------
 def get_wayback_urls(domain):
     try:
         url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&fl=original&collapse=urlkey"
         res = requests.get(url, timeout=10)
         data = res.json()
         return [entry[0] for entry in data[1:]] if len(data) > 1 else []
-    except:
-        return ["Wayback Machine lookup failed"]
+    except Exception as e:
+        return [f"Wayback Error: {e}"]
 
-# --------------------
-# Google Dorks
-# --------------------
-def get_google_dorks(domain):
+def generate_dorks(domain):
     base = f"site:{domain}"
     return [
         f"{base} inurl:admin",
@@ -128,9 +94,6 @@ def get_google_dorks(domain):
         f"{base} password"
     ]
 
-# --------------------
-# HTTP Headers
-# --------------------
 def get_http_headers(domain):
     try:
         res = requests.get(f"http://{domain}", timeout=5)
@@ -138,18 +101,35 @@ def get_http_headers(domain):
     except Exception as e:
         return {"Header Error": str(e)}
 
-# --------------------
-# Run Full Recon
-# --------------------
+def explain_headers(headers):
+    explanations = {
+        "Cache-Control": "Controls caching policies to avoid storing sensitive data.",
+        "Set-Cookie": "Used to store data on the client side (like session ID).",
+        "X-Frame-Options": "Prevents the site from being loaded inside a frame (clickjacking protection).",
+        "X-XSS-Protection": "Protects against cross-site scripting attacks.",
+        "Content-Type": "Tells the browser the content type (e.g., text/html).",
+        "Strict-Transport-Security": "Enforces secure (HTTPS) connections to the server.",
+        "Referrer-Policy": "Controls how much referrer info is sent when navigating.",
+        "X-Content-Type-Options": "Blocks MIME-sniffing to reduce exposure to drive-by attacks.",
+        "Server": "Reveals the backend server (e.g., Apache or Nginx)."
+    }
+    explanation_output = {}
+    for key, val in headers.items():
+        explanation_output[key] = {
+            "value": val,
+            "explanation": explanations.get(key, "No explanation available.")
+        }
+    return explanation_output
+
 def run_full_recon(domain):
     report = {}
     report["WHOIS & DNS"] = get_whois_dns(domain)
     report["Subdomains"] = subdomain_enum(domain)
     report["SSL Info"] = get_ssl_info(domain)
-    report["robots.txt"] = get_robots_txt(domain)
-    report["JavaScript Files"] = get_js_files(domain)
+    report["robots.txt"] = crawl_robots_txt(domain)
+    report["JavaScript Files"] = get_js_links(domain)
     report["Wayback URLs"] = get_wayback_urls(domain)
-    report["Google Dorks"] = get_google_dorks(domain)
+    report["Google Dorks"] = generate_dorks(domain)
     headers = get_http_headers(domain)
     report["HTTP Headers"] = headers
     report["💡 HTTP Header Explanation (AI)"] = explain_headers(headers)
