@@ -4,14 +4,16 @@ import streamlit as st
 import json
 from io import BytesIO
 from xhtml2pdf import pisa
-from recon_modules import run_full_recon  # All logic is in this file
+from recon_modules import run_full_recon
 
 # -----------------------
-# Streamlit Page Setup
+# Page Setup
 # -----------------------
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
-# Dark Theme Styling
+# -----------------------
+# Dark UI Styling
+# -----------------------
 st.markdown("""
 <style>
 body, .main, .block-container {
@@ -51,7 +53,7 @@ header, footer {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 # -----------------------
-# UI & User Input
+# Title & Inputs
 # -----------------------
 st.title("Bug Bounty Recon Toolkit")
 
@@ -65,15 +67,10 @@ report = {}
 # -----------------------
 if st.button("Run Full Recon") and domain:
     st.info("Running recon... Please wait.")
-
     report = run_full_recon(domain, email=email)
-
     st.success("Recon complete!")
-    st.subheader("📊 Recon Report")
 
-    # -----------------------
-    # Show All Sections
-    # -----------------------
+    st.subheader("📊 Recon Report")
     for section, content in report.items():
         with st.expander(section):
             if isinstance(content, dict):
@@ -84,7 +81,7 @@ if st.button("Run Full Recon") and domain:
                 st.write(content or "No data.")
 
     # -----------------------
-    # JSON Download
+    # JSON Download Button
     # -----------------------
     st.download_button(
         "📁 Download JSON Report",
@@ -94,24 +91,31 @@ if st.button("Run Full Recon") and domain:
     )
 
     # -----------------------
-    # PDF Download
+    # PDF Download Button
     # -----------------------
     def generate_pdf(domain, data):
-        html = f"<h1>Recon Report: {domain}</h1><hr>"
-        for section, content in data.items():
-            html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><hr>"
-        pdf = BytesIO()
-        pisa.CreatePDF(html, dest=pdf)
-        pdf.seek(0)
-        return pdf
+        try:
+            html = f"<h1>Recon Report for {domain}</h1><hr>"
+            for section, content in data.items():
+                html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><hr>"
+            pdf = BytesIO()
+            pisa.CreatePDF(html, dest=pdf)
+            pdf.seek(0)
+            return pdf
+        except Exception as e:
+            st.error(f"PDF generation failed: {e}")
+            return None
 
     pdf_file = generate_pdf(domain, report)
-    st.download_button(
-        "📄 Download PDF Report",
-        data=pdf_file,
-        file_name=f"{domain}_recon_report.pdf",
-        mime="application/pdf"
-    )
+    if pdf_file:
+        st.download_button(
+            "📄 Download PDF Report",
+            data=pdf_file,
+            file_name=f"{domain}_recon_report.pdf",
+            mime="application/pdf"
+        )
+    else:
+        st.warning("PDF report could not be generated.")
 
 else:
     st.info("Enter a domain above and click **Run Full Recon** to begin.")
