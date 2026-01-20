@@ -1,13 +1,13 @@
 import streamlit as st
 import json
 from io import BytesIO
-from xhtml2pdf import pisa
+from fpdf import FPDF
 from recon_modules import run_full_recon
 
 # Page Config
 st.set_page_config(page_title="Bug Bounty Recon Toolkit", layout="wide")
 
-# Styling
+# Dark mode styling
 st.markdown("""
 <style>
 body, .main, .block-container {
@@ -46,10 +46,10 @@ header, footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# layout
+# App layout
 st.title("Bug Bounty Recon Toolkit")
 
-domain = st.text_input("🔍 Enter a domain (e.g. example.com)")
+domain = st.text_input("Enter a domain (e.g. example.com)")
 report = {}
 
 if st.button("Run Full Recon") and domain:
@@ -57,7 +57,7 @@ if st.button("Run Full Recon") and domain:
     report = run_full_recon(domain)
     st.success("Recon complete!")
 
-    st.subheader("📊 Recon Report")
+    st.subheader("Recon Report")
     for section, content in report.items():
         with st.expander(section):
             if isinstance(content, dict):
@@ -69,17 +69,32 @@ if st.button("Run Full Recon") and domain:
 
     # PDF Export
     def generate_pdf(domain, data):
-        html = f"<h1>Recon Report for {domain}</h1><hr>"
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.multi_cell(0, 10, f"Recon Report for {domain}\n\n")
+
+        pdf.set_font("Arial", '', 12)
         for section, content in data.items():
-            html += f"<h2>{section}</h2><pre>{json.dumps(content, indent=2)}</pre><hr>"
-        pdf = BytesIO()
-        pisa.CreatePDF(html, dest=pdf)
-        pdf.seek(0)
-        return pdf
+            pdf.set_font("Arial", 'B', 14)
+            pdf.multi_cell(0, 8, section)
+            pdf.set_font("Arial", '', 12)
+            if isinstance(content, dict):
+                pdf.multi_cell(0, 6, json.dumps(content, indent=2))
+            elif isinstance(content, list):
+                pdf.multi_cell(0, 6, "\n".join(content))
+            else:
+                pdf.multi_cell(0, 6, str(content or "No data."))
+            pdf.ln(4)
+        pdf_buffer = BytesIO()
+        pdf.output(pdf_buffer)
+        pdf_buffer.seek(0)
+        return pdf_buffer
 
     pdf_file = generate_pdf(domain, report)
     st.download_button(
-        "📄 Download PDF Report",
+        "Download PDF Report",
         data=pdf_file,
         file_name=f"{domain}_recon_report.pdf",
         mime="application/pdf"
